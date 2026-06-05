@@ -1157,7 +1157,7 @@
         <span>🔍</span>
         <input type="text" placeholder="Search notes..." id="search-input" oninput="searchNotes(this.value)">
       </div>
-      <button class="btn-notif" onclick="showPage('notifications')" title="Push Notifications">
+      <button class="btn-notif" id="topbar-notif-btn" onclick="showPage('notifications')" title="Push Notifications">
         🔔
         <div class="notif-dot"></div>
       </button>
@@ -1340,9 +1340,10 @@
 <div class="toast-container" id="toast-container"></div>
 
 <script>
-  const GEMINI_KEY = "AQ.Ab8RN6KynuWAF0lfXnM2kOco-qbb85hhC3wXtXwQmLbBWk69sA";
+  const GEMINI_KEY = "AQ.Ab8RN6KHLxKL3FFPve1sswmguECSOp0oivC77LJz6-ITinqGCA";
   const ONESIGNAL_APP_ID = "55f627ad-86f9-4c0e-81c8-8d7a9b3a44ce";
   const ONESIGNAL_REST_KEY = "os_v2_app_kx3cplmg7fga5aoirv5jwosezztndskxdtbukt4h3x3nunasimrtbfnizwq6eydpxb74tzsmxzpcnr6dwsenj3aned6fonhpa56lg3i";
+  const ADMIN_EMAIL = "connect.aminul79@gmail.com";
 
   let currentUser = null;
   let notes = [];
@@ -1387,6 +1388,12 @@
       document.getElementById('user-avatar').style.display = 'block';
       document.getElementById('user-avatar-placeholder').style.display = 'none';
     }
+    // Admin-only: show notification nav & topbar button
+    const isAdmin = user.email === ADMIN_EMAIL;
+    const navNotif = document.getElementById('nav-notifications');
+    const btnNotif = document.getElementById('topbar-notif-btn');
+    if (navNotif) navNotif.style.display = isAdmin ? 'flex' : 'none';
+    if (btnNotif) btnNotif.style.display = isAdmin ? 'flex' : 'none';
   }
 
   // ── AUTH ──
@@ -1689,21 +1696,22 @@
           included_segments: ['All'],
           headings: { en: title },
           contents: { en: message },
-          url: url || undefined
+          url: url || 'https://deenguide.github.io/FireflyNotes'
         })
       });
       const data = await res.json();
       if (data.id) {
-        status.textContent = '✓ Notification sent successfully! ID: ' + data.id;
+        status.innerHTML = '✓ Notification sent! ID: ' + data.id;
         status.className = 'notif-status success';
         showToast('Notification sent ✓', 'success');
       } else {
-        throw new Error(data.errors?.[0] || 'Unknown error');
+        // CORS blocked — show dashboard link
+        throw new Error('cors');
       }
     } catch(e) {
-      status.textContent = '✗ Failed: ' + e.message;
+      // Fallback: open OneSignal dashboard
+      status.innerHTML = `⚠️ Browser blocked direct send (CORS). <a href="https://dashboard.onesignal.com/apps/55f627ad-86f9-4c0e-81c8-8d7a9b3a44ce/notifications/new" target="_blank" style="color:var(--accent);font-weight:600;">Click here → Send from Dashboard</a>`;
       status.className = 'notif-status error';
-      showToast('Send failed', 'error');
     }
 
     btn.disabled = false; btn.textContent = '🔔 Send to All Subscribers';
@@ -1717,6 +1725,11 @@
 
   // ── NAVIGATION ──
   function showPage(page) {
+    // Admin guard for notifications page
+    if (page === 'notifications' && currentUser?.email !== ADMIN_EMAIL) {
+      showToast('Admin only feature', 'error');
+      return;
+    }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('page-' + page).classList.add('active');
